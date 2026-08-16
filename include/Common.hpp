@@ -42,10 +42,6 @@ struct CompareById {
     }
 };
 
-struct BookLevel {
-    set<Order> orders;
-};
-
 struct Fill {
     Time ts;
     OrderId order_id;

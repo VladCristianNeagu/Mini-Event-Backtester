@@ -17,7 +17,7 @@ double Book::bestAsk() const {
     return askLevels_.begin()->first;
 }
 
-vector<Order> Book::getOpenOrders() const {
+vector<Order> Book::getOpenOrders() const{
     vector<Order> orders;
     orders.reserve(bidLevels_.size() + askLevels_.size());
 
@@ -42,11 +42,11 @@ bool Book::addOrder(const Order& order, vector<Fill>* fills) {
     }
 
     if (order.side == Side::Buy) {
-        bidLevels_[order.limit_price].orders.insert(order);
-        orderMap_[order.id] = {true, bidLevels_.find(order.limit_price), bidLevels_[order.limit_price].orders.find(order)};
+        bidLevels_[order.limit_price].orders.push_back(order);
+        orderMap_[order.id] = {true, bidLevels_.find(order.limit_price), --bidLevels_[order.limit_price].orders.end()};
     } else {
-        askLevels_[order.limit_price].orders.insert(order);
-        orderMap_[order.id] = {false, askLevels_.find(order.limit_price), askLevels_[order.limit_price].orders.find(order)};
+        askLevels_[order.limit_price].orders.push_back(order);
+        orderMap_[order.id] = {false, askLevels_.find(order.limit_price), --askLevels_[order.limit_price].orders.end()};
     }
 
     vector<Fill> generatedFills = checkCross(0, order);
@@ -56,7 +56,7 @@ bool Book::addOrder(const Order& order, vector<Fill>* fills) {
     return true;
 }
 
-bool Book::modifyOrder(int orderId, int new_limit_price, int new_quantity, vector<Fill>* fills) {
+bool Book::modifyOrder(int orderId, Price new_limit_price, int new_quantity, vector<Fill>* fills) {
     if (new_quantity <= 0) {
         return cancelOrder(orderId);
     }
@@ -89,13 +89,13 @@ bool Book::modifyOrder(int orderId, int new_limit_price, int new_quantity, vecto
     updatedOrder.quantity = new_quantity;
 
     if (loc.isBid) {
-        bidLevels_[new_limit_price].orders.insert(updatedOrder);
+        bidLevels_[new_limit_price].orders.push_back(updatedOrder);
         loc.levelIt = bidLevels_.find(new_limit_price);
-        loc.orderIt = bidLevels_[new_limit_price].orders.find(updatedOrder);
+        loc.orderIt = --bidLevels_[new_limit_price].orders.end();
     } else {
-        askLevels_[new_limit_price].orders.insert(updatedOrder);
+        askLevels_[new_limit_price].orders.push_back(updatedOrder);
         loc.levelIt = askLevels_.find(new_limit_price);
-        loc.orderIt = askLevels_[new_limit_price].orders.find(updatedOrder);
+        loc.orderIt = --askLevels_[new_limit_price].orders.end();
     }
 
     vector<Fill> generatedFills = checkCross(0, updatedOrder);
@@ -190,13 +190,13 @@ vector<Fill> Book::checkCross(Time now, Order order){
             updatedOrder.quantity = pending.quantity;
 
             if (loc.isBid) {
-                bidLevels_[updatedOrder.limit_price].orders.insert(updatedOrder);
+                bidLevels_[updatedOrder.limit_price].orders.push_back(updatedOrder);
                 loc.levelIt = bidLevels_.find(updatedOrder.limit_price);
-                loc.orderIt = bidLevels_[updatedOrder.limit_price].orders.find(updatedOrder);
+                loc.orderIt = --bidLevels_[updatedOrder.limit_price].orders.end();
             } else {
-                askLevels_[updatedOrder.limit_price].orders.insert(updatedOrder);
+                askLevels_[updatedOrder.limit_price].orders.push_back(updatedOrder);
                 loc.levelIt = askLevels_.find(updatedOrder.limit_price);
-                loc.orderIt = askLevels_[updatedOrder.limit_price].orders.find(updatedOrder);
+                loc.orderIt = --askLevels_[updatedOrder.limit_price].orders.end();
             }
         }
         for (const auto& id : pendingCancels) {
@@ -238,13 +238,13 @@ vector<Fill> Book::checkCross(Time now, Order order){
         updatedOrder.quantity = newQuantity;
 
         if (loc.isBid) {
-            bidLevels_[updatedOrder.limit_price].orders.insert(updatedOrder);
+            bidLevels_[updatedOrder.limit_price].orders.push_back(updatedOrder);
             loc.levelIt = bidLevels_.find(updatedOrder.limit_price);
-            loc.orderIt = bidLevels_[updatedOrder.limit_price].orders.find(updatedOrder);
+            loc.orderIt = --bidLevels_[updatedOrder.limit_price].orders.end();
         } else {
-            askLevels_[updatedOrder.limit_price].orders.insert(updatedOrder);
+            askLevels_[updatedOrder.limit_price].orders.push_back(updatedOrder);
             loc.levelIt = askLevels_.find(updatedOrder.limit_price);
-            loc.orderIt = askLevels_[updatedOrder.limit_price].orders.find(updatedOrder);
+            loc.orderIt = --askLevels_[updatedOrder.limit_price].orders.end();
         }
     };
 
