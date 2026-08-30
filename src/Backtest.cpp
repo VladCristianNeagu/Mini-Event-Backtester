@@ -4,11 +4,12 @@
 #include <iostream>
 #include <numeric>
 #include <sstream>
-#include <stdexcept>
+#include <chrono>
 using namespace std;
 
-Backtest::Backtest(string& historicalDataPath,Book& book,Strategy& strategy,Time startTime,Time endTime,Time strategyLatency)
-    : historicalDataPath_(historicalDataPath),book_(book),strategy_(strategy),startTime_(startTime),endTime_(endTime),strategyLatency_(strategyLatency) {
+
+Backtest::Backtest(string& historicalDataPath,Book& book,Strategy& strategy,Time startTime,Time endTime)
+    : historicalDataPath_(historicalDataPath),book_(book),strategy_(strategy),startTime_(startTime),endTime_(endTime) {
         load_historical_data(historicalDataPath);
     }
 
@@ -194,26 +195,32 @@ void Backtest::applyOrderCommand(Time now, const OrderCommand& command) {
 }
 void Backtest::run() {
     cout<<"Started Backtest from "<<startTime_<<" to "<<endTime_<<endl;
+    int when_is_not_busy=0;
     for(Time i=startTime_;i<=endTime_;i=eventPool_.empty()?endTime_+1:eventPool_.top().ts){
-        recent_order_events_.clear();
         now_=i;
-
         vector<OrderCommand> currentCommands;
         while(!eventPool_.empty() && eventPool_.top().ts<=now_){
             currentCommands.push_back(eventPool_.top());
             eventPool_.pop();
         }
-
         for (const auto& command : currentCommands) {
             applyOrderCommand(now_, command);
         }
-
-        auto new_commands=strategy_.onTimeMove(now_,book_,portfolio_,recent_order_events_);
+        if (now_<=when_is_not_busy) {
+            continue;
+        }
+        /////The commands the strategy made and the time it took the strategy to process
+        pair<optional<vector<OrderCommand>>, Time> result=strategy_.onTimeMove(now_,book_,portfolio_,recent_order_events_);
+        optional<vector<OrderCommand>> new_commands=result.first;
+        Time strategy_duration=result.second;
+        /*this for research purpose*/ strategyDuration_.push_back(strategy_duration);
+        when_is_not_busy=now_ + backtest_to_strategy_latency_ + stategy_to_backtest_latency_ + strategy_duration;
+        recent_order_events_.clear();
         if(new_commands.has_value()){
             vector<OrderCommand> delayedCommands;
             delayedCommands.reserve(new_commands->size());
             for(auto& new_command:new_commands.value()){
-                new_command.ts = now_ + strategyLatency_;
+                new_command.ts = now_ + backtest_to_strategy_latency_ + stategy_to_backtest_latency_ + strategy_duration;
                 if (new_command.type == OrderCommandType::AddOrder && new_command.quantity <= 0) {
                     continue;
                 }
@@ -241,6 +248,9 @@ void Backtest::printResults() {
     cout << "Portfolio open orders: " << endl;
     cout << "Final estimated money: " << portfolio_.getCash() + portfolio_.getPosition() * book_.bestBid() << endl;
     cout << "Total historical position: " << portfolio_.getTotalHistoricalPosition() << endl;
+    cout << "Average strategy duration: " << (strategyDuration_.empty() ? 0 : accumulate(strategyDuration_.begin(), strategyDuration_.end(), 0LL) / strategyDuration_.size()) << " ns" << endl;
+    cout << "Median strategy duration: " << (strategyDuration_.empty() ? 0 : *next(strategyDuration_.begin(), strategyDuration_.size() / 2)) << " ns" << endl;
+    cout << "90th percentile strategy duration: " << (strategyDuration_.empty() ? 0 : *next(strategyDuration_.begin(), strategyDuration_.size() * 9 / 10)) << " ns" << endl;
     for (const auto& order : portfolio_.getOpenOrders()) {
         cout << "Order ID: " << order.id
              << ", Side: " << (order.side == Side::Buy ? "Buy" : "Sell")

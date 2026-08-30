@@ -31,7 +31,7 @@ public:
 
 class RollingMid : public Strategy {
     public:
-        optional<vector<OrderCommand>> onTimeMove(const Time& now, const Book& book, const Portfolio& portfolio, const vector<OrderEvent>& recent_events) override;
+        pair<optional<vector<OrderCommand>>, Time> onTimeMove(const Time& now, const Book& book, const Portfolio& portfolio, const vector<OrderEvent>& recent_events) override;
     private:
         RunningMean midMean_;
 };
