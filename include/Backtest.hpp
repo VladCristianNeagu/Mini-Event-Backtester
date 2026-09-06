@@ -36,8 +36,8 @@ class Backtest {
         bool CancelOrder(Time now,const OrderCommand& command);
         optional<OrderEvent> applyFill(Time now,const Fill& fill);
 
-        int backtest_to_strategy_latency_{150000LL}; // 150 microseconds
-        int stategy_to_backtest_latency_{200000LL}; // 200 microseconds
+        Time backtest_to_strategy_latency_{150000}; // 150 microseconds
+        Time stategy_to_backtest_latency_{200000}; // 200 microseconds
         string historicalDataPath_;
         Time now_{0};
         Time startTime_{0};

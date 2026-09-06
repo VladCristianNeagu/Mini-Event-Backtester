@@ -195,9 +195,10 @@ void Backtest::applyOrderCommand(Time now, const OrderCommand& command) {
 }
 void Backtest::run() {
     cout<<"Started Backtest from "<<startTime_<<" to "<<endTime_<<endl;
-    int when_is_not_busy=0;
+    Time when_is_not_busy=0;
     for(Time i=startTime_;i<=endTime_;i=eventPool_.empty()?endTime_+1:eventPool_.top().ts){
         now_=i;
+        cout<<"Processing event at time: "<<now_<<endl;
         vector<OrderCommand> currentCommands;
         while(!eventPool_.empty() && eventPool_.top().ts<=now_){
             currentCommands.push_back(eventPool_.top());
