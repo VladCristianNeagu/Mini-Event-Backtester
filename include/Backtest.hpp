@@ -14,6 +14,8 @@ struct OrderCommandCompare {
         if (lhs.ts != rhs.ts) {
             return lhs.ts > rhs.ts;
         }
+        // Alex: Commands with the same timestamp are reordered by quantity and order ID rather than by their arrival/insertion sequence.
+        //Neither field reflects event sequence. Because cancels and modifies often default to zero quantity, this tie-breaker accidentally executes them before the add order they target.
         if (lhs.quantity != rhs.quantity) {
             return lhs.quantity > rhs.quantity;
         }

@@ -41,6 +41,8 @@ bool Book::addOrder(const Order& order, vector<Fill>* fills) {
         return false;
     }
 
+    // Alex: Duplicate order IDs are not rejected or removed before insertion. Assigning orderMap_[order.id] below overwrites the only location for the old node while leaving that node in its price level. 
+    // A later cancel or fill for the old node can then remove the new order instead, leaving a filled ghost order in the book.
     if (order.side == Side::Buy) {
         bidLevels_[order.limit_price].orders.push_back(order);
         orderMap_[order.id] = {true, bidLevels_.find(order.limit_price), --bidLevels_[order.limit_price].orders.end()};
@@ -49,6 +51,7 @@ bool Book::addOrder(const Order& order, vector<Fill>* fills) {
         orderMap_[order.id] = {false, askLevels_.find(order.limit_price), --askLevels_[order.limit_price].orders.end()};
     }
 
+    // Alex: Matching is always invoked with timestamp zero, so every generated Fill stored in portfolio history has ts == 0 regardless of when the trade occurred.
     vector<Fill> generatedFills = checkCross(0, order);
     if (fills != nullptr) {
         *fills = std::move(generatedFills);

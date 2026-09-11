@@ -134,6 +134,8 @@ int computeEffectivePosition(const Portfolio& portfolio) {
 
 pair<optional<vector<OrderCommand>>, Time> RollingMid::onTimeMove(const Time& now, const Book& book, const Portfolio& portfolio, const vector<OrderEvent>& recent_events) {
     chrono::high_resolution_clock::time_point start = chrono::high_resolution_clock::now();
+    // Alex: Function-local static state is shared by every RollingMid instance and survives after an individual backtest finishes. 
+    // Running a second backtest in the same process therefore starts with prices from the first run, contaminating fair value and volatility and making test results depend on execution order.
     static deque<Price> midHistory;
     const Price bestBid = book.bestBid();
     const Price bestAsk = book.bestAsk();

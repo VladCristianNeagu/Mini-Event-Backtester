@@ -41,6 +41,7 @@ class LinkedList {
         LinkedListNode head{};
         LinkedListNode tail{};
 
+        // Alex: Nodes allocated by `push_back` are never released when a LinkedList is destroyed because there is no destructor calling `clear()`. Every non-erased resting order leaks memory.
         LinkedList() {
             head.next = &tail;
             head.prev = nullptr;

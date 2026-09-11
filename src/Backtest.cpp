@@ -30,6 +30,10 @@ void Backtest::load_historical_data(string historicalDataPath) {
 
         // Time
         getline(ss, cell, ',');
+        // Alex: `command.ts` is an integer (`Time`), so assigning `stod(cell)` here truncates the fractional seconds before the value is multiplied by 1e9. 
+        // For example, both 1.100000000 and 1.900000000 become 1 and are then stored as 1,000,000,000 ns.
+        // This collapses all events in the same second onto one timestamp and can make fills, modifies, and cancels execute in the wrong market state.
+
         command.ts = stod(cell);
         command.ts=command.ts*1e9; // convert to nanoseconds
 
@@ -64,6 +68,12 @@ void Backtest::load_historical_data(string historicalDataPath) {
 
         case 2:
             command.type = OrderCommandType::ModifyOrder;
+            // Alex: Historical type-2 messages represent a quantity reduction, but only `new_quantity` is initialized here. 
+            // `new_limit_price` remains its default 0.0 even though `limit_price` above contains the parsed resting price. 
+            // ModifyOrder later passes `new_limit_price` to the book, so a valid resting order can be moved to price zero while its size is reduced. 
+            // Preserve the order's current price (or assign the parsed price to `new_limit_price`) when translating this feed event
+
+
             command.new_quantity = size;   // quantity to cancel
             break;
 
@@ -99,7 +109,8 @@ bool Backtest::ModifyOrder(Time now, const OrderCommand& command, vector<Fill>* 
         const int currentQuantity = currentQuantityIt != orderQuantities_.end() ? currentQuantityIt->second : 0;
         nextQuantity = max(0, currentQuantity - cancelledQuantity);
     }
-
+    // Alex: External (type-2) modifies currently default to a 0.0 new_limit_price, which overwrites the resting price in the book and breaks matching.
+    // You could update this to retain the original resting price for external quantity reductions, while still allowing strategy-driven modifies to use their explicit new prices.
     bool worked = book_.modifyOrder(command.order_id, command.new_limit_price, nextQuantity, fills);
 
     if (worked) {
@@ -118,6 +129,8 @@ bool Backtest::CancelOrder(Time now, const OrderCommand& command) {
     return worked;
 }
 optional<OrderEvent> Backtest::applyFill(Time now, const Fill& fill) {
+    // Alex: This first block decrements every tracked order, regardless of owner. The non-strategy branch below then finds the same order and subtracts `fill.quantity` a second time. 
+    // A 20-unit external order filled for 5 is therefore tracked as 10 instead of 15. A later feed modify computes its replacement quantity from that incorrect value,
     auto quantityIt = orderQuantities_.find(fill.order_id);
     if (quantityIt != orderQuantities_.end()) {
         quantityIt->second -= fill.quantity;
@@ -133,6 +146,7 @@ optional<OrderEvent> Backtest::applyFill(Time now, const Fill& fill) {
     }
 
     if (fill.order_id != 0) {
+        // Alex: This is the second decrement described above. It is not a harmless normalization: the first owner-independent block already updated or erased this entry.
         const auto orderIt = orderQuantities_.find(fill.order_id);
         if (orderIt != orderQuantities_.end()) {
             orderIt->second = max(0, orderIt->second - fill.quantity);
