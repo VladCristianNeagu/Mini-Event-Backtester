@@ -48,6 +48,7 @@ class LinkedList {
             tail.next = nullptr;
         }
 
+        // Review: Nodes allocated here are only released by erase/clear, but the list has no destructor that calls clear(), so any remaining nodes leak when the list is destroyed.
         void push_back(const T& order) {
             LinkedListNode* newNode = new LinkedListNode{order, &tail, tail.prev};
             tail.prev->next = newNode;
