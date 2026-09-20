@@ -30,6 +30,7 @@ void Backtest::load_historical_data(string historicalDataPath) {
 
         // Time
         getline(ss, cell, ',');
+        // Review: command.ts is a long long, so assigning stod(cell) truncates fractional seconds before multiplying to nanoseconds.
         command.ts = stod(cell);
         command.ts=command.ts*1e9; // convert to nanoseconds
 
@@ -65,6 +66,7 @@ void Backtest::load_historical_data(string historicalDataPath) {
         case 2:
             command.type = OrderCommandType::ModifyOrder;
             command.new_quantity = size;   // quantity to cancel
+            // Review: ModifyOrder later uses command.new_limit_price, but this branch never initializes it from the CSV price.
             break;
 
         case 3:
@@ -118,6 +120,7 @@ bool Backtest::CancelOrder(Time now, const OrderCommand& command) {
     return worked;
 }
 optional<OrderEvent> Backtest::applyFill(Time now, const Fill& fill) {
+    // Review: This block already decrements orderQuantities_; the non-strategy branch below decrements the same fill again, corrupting remaining size.
     auto quantityIt = orderQuantities_.find(fill.order_id);
     if (quantityIt != orderQuantities_.end()) {
         quantityIt->second -= fill.quantity;
